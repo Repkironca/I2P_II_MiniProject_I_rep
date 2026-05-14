@@ -13,7 +13,8 @@ typedef enum {
     INT, ID,
     ADDSUB, MULDIV,
     ASSIGN,
-    LPAREN, RPAREN
+    LPAREN, RPAREN,
+    INCDEC, AND, OR, XOR
 } TokenSet;
 
 TokenSet getToken(void);
