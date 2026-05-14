@@ -1,0 +1,1 @@
+gcc calculator_merged.c -o my_calc.exe && gcc assembly_parser\main.c -o parser_tool.exe && my_calc.exe < assembly_parser\testcase\1.txt > input.txt && parser_tool.exe < input.txt && type output.txt
