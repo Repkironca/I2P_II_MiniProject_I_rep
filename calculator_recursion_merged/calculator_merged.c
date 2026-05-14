@@ -14,7 +14,8 @@ typedef enum {
     ADDSUB, MULDIV,
     ASSIGN,
     LPAREN, RPAREN,
-    INCDEC, AND, OR, XOR
+    INCDEC, ADDSUB_ASSIGN,
+    AND, OR, XOR, 
 } TokenSet;
 
 TokenSet getToken(void);
@@ -97,14 +98,17 @@ void printPrefix(BTNode *root);
 lex implementation
 ============================================================================================*/
 
-TokenSet getToken(void)
-{
+int isVarName (char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_');
+}
+
+TokenSet getToken(void) {
     int i = 0;
     char c = '\0';
 
     while ((c = fgetc(stdin)) == ' ' || c == '\t');
 
-    if (isdigit(c)) {
+    if (isdigit(c)) { // caseA，這是一個數字開頭的東西
         lexeme[0] = c;
         c = fgetc(stdin);
         i = 1;
@@ -113,13 +117,28 @@ TokenSet getToken(void)
             ++i;
             c = fgetc(stdin);
         }
+        if (isVarName(c)){
+            error(NOTLVAL);
+        }
         ungetc(c, stdin);
         lexeme[i] = '\0';
         return INT;
-    } else if (c == '+' || c == '-') {
+    } else if (c == '+' || c == '-') { // 誒並不是讀到一個 + 或 - 就能亂判斷誒
         lexeme[0] = c;
-        lexeme[1] = '\0';
-        return ADDSUB;
+        c = fgetc(stdin);
+        if (c == '+' || c == '-'){ // ++ or --
+            lexeme[1] = c;
+            lexeme[2] = '\0';
+            return INCDEC;            
+        } else if (c == '='){ // += or -=
+            lexeme[1] = c;
+            lexeme[2] = '\0';
+            return ADDSUB_ASSIGN;  
+        } else{
+            ungetc(c, stdin); // 吐回去
+            lexeme[1] = '\0';
+            return ADDSUB;
+        }
     } else if (c == '*' || c == '/') {
         lexeme[0] = c;
         lexeme[1] = '\0';
@@ -136,9 +155,17 @@ TokenSet getToken(void)
     } else if (c == ')') {
         strcpy(lexeme, ")");
         return RPAREN;
-    } else if (isalpha(c)) {
+    } else if (isVarName(c)) {
         lexeme[0] = c;
-        lexeme[1] = '\0';
+        c = fgetc(stdin);
+        i = 1;
+        while ((isdigit(c) || isVarName(c)) && i < MAXLEN) {
+            lexeme[i] = c;
+            ++i;
+            c = fgetc(stdin);
+        }
+        ungetc(c, stdin); // 多的吐回去
+        lexeme[i] = '\0';
         return ID;
     } else if (c == EOF) {
         return ENDFILE;
@@ -381,6 +408,7 @@ void err(ErrorType errorNum) {
                 break;
         }
     }
+    printf("EXIT 1\n");
     exit(0);
 }
 

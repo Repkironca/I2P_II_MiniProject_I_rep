@@ -1,0 +1,1 @@
+gcc calculator_merged.c -o my_calc.exe && my_calc.exe
