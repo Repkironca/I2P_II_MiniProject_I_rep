@@ -23,3 +23,7 @@ tags: [i2P-mini-project]
 
 ## Code Tracing
 - [直接告訴你 TA 在寫什麼，以及哪裡寫爛與怎麼改](https://hackmd.io/DGi6xnL-SRWdRo42R7yU9g)
+
+## Ans
+- [Complete AC Code](https://hackmd.io/0KVYzHGsS3SuobEkQdRavg)
+- [卡過的 bug 筆記](https://hackmd.io/nbHL0DgYTOyfp6KLVB2Kgg)
