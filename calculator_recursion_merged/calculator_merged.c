@@ -8,6 +8,7 @@
 #define MAXLEN 256
 
 // Token types
+// 新的符號補進來！
 typedef enum {
     UNKNOWN, END, ENDFILE,
     INT, ID,
@@ -134,7 +135,7 @@ TokenSet getToken(void) {
     } else if (c == '+' || c == '-') { // 誒並不是讀到一個 + 或 - 就能亂判斷誒
         lexeme[0] = c;
         c = fgetc(stdin);
-        if (c == '+' || c == '-'){ // ++ or --
+        if (c == lexeme[0]){ // ++ or --
             lexeme[1] = c;
             lexeme[2] = '\0';
             return INCDEC;            
@@ -163,6 +164,15 @@ TokenSet getToken(void) {
     } else if (c == ')') {
         strcpy(lexeme, ")");
         return RPAREN;
+    } else if (c == '&') {
+        strcpy(lexeme, "&");
+        return AND;
+    } else if (c == '|') {
+        strcpy(lexeme, "|");
+        return OR;
+    } else if (c == '^') {
+        strcpy(lexeme, "^");
+        return XOR;
     } else if (isVarName(c)) {
         lexeme[0] = c;
         c = fgetc(stdin);
@@ -231,8 +241,7 @@ int setval(char *str, int val) {
     // 先檢查是否已經在 table 內
     for (i = 0; i < sbcount; i++) {
         if (strcmp(str, table[i].name) == 0) {
-            table[i].val = val;
-            return val;
+            return table[i].val;
         }
     }
 
@@ -242,7 +251,7 @@ int setval(char *str, int val) {
     strcpy(table[sbcount].name, str);
     table[sbcount].val = 4*(sbcount); // 分配到新的空記憶體
     sbcount++;
-    return val;
+    return table[sbcount-1].val; // 因為我剛剛 ++ 了，所以扣回去
 }
 
 BTNode *makeNode(TokenSet tok, const char *lexe) {
@@ -472,22 +481,26 @@ void statement(void) {
 
     if (match(ENDFILE)) {
         // 我就不真的搬了，講得好像我們真的有 register 一樣
-        printf("MOV x, r0");
-        printf("MOV y, r1");
-        printf("MOV z, r2");
+        printf("MOV r0 [0]\n");
+        printf("MOV r1 [4]\n");
+        printf("MOV r2 [8]\n");
+        printf("EXIT 0\n");
         exit(0);
     } else if (match(END)) {
-        printf(">> ");
+        free_reg(evaluateTree(retp)); // 你全部算完後，要把最後一個 register 也還回去
+        // printf(">> ");
         advance();
     } else {
         retp = assign_expr();
         if (match(END)) {
-            printf("%d\n", evaluateTree(retp));
-            printf("Prefix traversal: ");
-            printPrefix(retp);
-            printf("\n");
+            int final_reg = evaluateTree(retp);
+            free_reg(final_reg);
+
+            // printf("Prefix traversal: ");
+            // printPrefix(retp);
+            // printf("\n");
             freeTree(retp);
-            printf(">> ");
+            // printf(">> ");
             advance();
         } else {
             error(SYNTAXERR);
@@ -535,7 +548,35 @@ void err(ErrorType errorNum) {
 codeGen implementation
 ============================================================================================*/
 
-int evaluateTree(BTNode *root) {
+// 我本來想寫 int *reg_status = (int*) malloc(8* sizeof(int)) 但我被 C 搞到了
+int reg_status[8] = {0}; // 表示有哪些 register 是空的，0 表示空著
+
+// 找到一個空的 register
+int get_reg(void){
+    for (int i = 0; i < 8; i++){
+        if (!reg_status[i]){
+            reg_status[i] = 1;
+            return i;
+        }
+    }
+    error(RUNOUT);
+    return -1;
+}
+
+// 把 register 給 free 掉
+void free_reg(int index){
+    reg_status[index] = 0;
+}
+
+// 回傳＂這顆樹內是否含有任何變數＂，1 代表有
+int hasVariable(BTNode *root) {
+    if (root == NULL) return 0;
+    if (root->data == ID) return 1;
+    return hasVariable(root->left) || hasVariable(root->right);
+}
+
+// 這是 TA 本來的 evaluateTree 改個名而已，記得裡面也要改
+int calculateConstant(BTNode *root) {
     int retval = 0, lv = 0, rv = 0;
 
     if (root != NULL) {
@@ -547,13 +588,16 @@ int evaluateTree(BTNode *root) {
                 retval = atoi(root->lexeme);
                 break;
             case ASSIGN:
-                rv = evaluateTree(root->right);
+                rv = calculateConstant(root->right);
                 retval = setval(root->left->lexeme, rv);
                 break;
             case ADDSUB:
             case MULDIV:
-                lv = evaluateTree(root->left);
-                rv = evaluateTree(root->right);
+            case AND:
+            case OR:
+            case XOR:
+                lv = calculateConstant(root->left);
+                rv = calculateConstant(root->right);
                 if (strcmp(root->lexeme, "+") == 0) {
                     retval = lv + rv;
                 } else if (strcmp(root->lexeme, "-") == 0) {
@@ -564,7 +608,76 @@ int evaluateTree(BTNode *root) {
                     if (rv == 0)
                         error(DIVZERO);
                     retval = lv / rv;
+                } else if (strcmp(root->lexeme, "&") == 0) {
+                    retval = lv & rv;
+                } else if (strcmp(root->lexeme, "|") == 0) {
+                    retval = lv | rv;
+                } else if (strcmp(root->lexeme, "^") == 0) {
+                    retval = lv ^ rv;
                 }
+                break;
+            default:
+                retval = 0;
+        }
+    }
+    return retval;
+}
+
+// 這個要拿來輸出 Assembly!
+int evaluateTree(BTNode *root) {
+    int retval = 0, lv = 0, rv = 0;
+    if (root != NULL) {
+        switch (root->data) {
+            case ID:
+                retval = get_reg(); // 拿一個新的 register
+                int addr = getval(root->lexeme); // 原本在 memory 的位置
+                printf("MOV r%d [%d]\n", retval, addr);
+                break;
+            case INT:
+                retval = get_reg(); // 拿一個新的 register
+                printf("MOV r%d %s\n", retval, root->lexeme); // e.g. MOV r1, 7
+                break;
+            case ASSIGN: // 例如 x = 7
+                rv = evaluateTree(root->right);
+                // 誒注意要用 setval 而非 getval，後者會直接殺了新變數
+                int left_addr = setval(root->left->lexeme, 0);
+                printf("MOV [%d] r%d\n", left_addr, rv); // 存回去記憶體
+                retval = rv; // 為了防禦 x = y = 3 這類，還是要把右小孩傳上去
+                break;
+            case ADDSUB:
+            case MULDIV:
+            case AND:
+            case OR:
+            case XOR:
+                // 所有的二元運算子！
+                lv = evaluateTree(root->left);
+                rv = evaluateTree(root->right);
+
+                // 左右小孩都出來了，那就當無情打印機
+                if (strcmp("+", root->lexeme) == 0){
+                    printf("ADD r%d r%d\n", lv, rv);
+                } else if (strcmp("-", root->lexeme) == 0){
+                    printf("SUB r%d r%d\n", lv, rv);
+                } else if (strcmp("*", root->lexeme) == 0){
+                    printf("MUL r%d r%d\n", lv, rv);
+                } else if (strcmp("/", root->lexeme) == 0){
+                    if (!hasVariable(root->right)){ // 如果右小孩是純變數還 = 0 就要 EXIT 1 了
+                        if (calculateConstant(root->right) == 0){
+                            error(DIVZERO);
+                            return -1;
+                        }
+                    }
+                    printf("DIV r%d r%d\n", lv, rv);
+                } else if (strcmp("&", root->lexeme) == 0){
+                    printf("AND r%d r%d\n", lv, rv);
+                } else if (strcmp("|", root->lexeme) == 0){
+                    printf("OR r%d r%d\n", lv, rv);
+                } else if (strcmp("^", root->lexeme) == 0){
+                    printf("XOR r%d r%d\n", lv, rv);
+                }
+
+                free_reg(rv); // 右小孩可以釋出了
+                retval = lv; // 左小孩繼續往上傳
                 break;
             default:
                 retval = 0;
@@ -611,7 +724,7 @@ main
 
 int main() {
     initTable();
-    printf(">> ");
+    // printf(">> ");
     while (1) {
         statement();
     }
