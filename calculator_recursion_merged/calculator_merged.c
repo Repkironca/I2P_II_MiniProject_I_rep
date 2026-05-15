@@ -95,10 +95,12 @@ void statement(void);
 // Print error message and exit the program
 void err(ErrorType errorNum);
 
-
 // for codeGen
 // Evaluate the syntax tree
+int calculateConstant(BTNode *root);
 int evaluateTree(BTNode *root);
+int get_reg(void);
+void free_reg(int index);
 // Print the syntax tree in prefix
 void printPrefix(BTNode *root);
 
