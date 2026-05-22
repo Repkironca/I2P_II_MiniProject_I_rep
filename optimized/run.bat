@@ -1,0 +1,1 @@
+gcc -w opt_3.c -o rf.exe && rf.exe

@@ -1,0 +1,24 @@
+MOV  | REG  : 1    | ADDR : 4    | 200cc  |
+MOV  | REG  : 2    | ADDR : 8    | 200cc  |
+XOR  | REG  : 1    | REG  : 2    | 10cc   |
+MOV  | ADDR : 0    | REG  : 1    | 200cc  |
+MOV  | REG  : 4    | CONST: 13   | 10cc   |
+MOV  | ADDR : 12   | REG  : 4    | 200cc  |
+MOV  | REG  : 4    | CONST: 48733 | 10cc   |
+MOV  | ADDR : 16   | REG  : 4    | 200cc  |
+MOV  | REG  : 4    | ADDR : 12   | 200cc  |
+MOV  | REG  : 5    | CONST: 468  | 10cc   |
+ADD  | REG  : 1    | REG  : 5    | 10cc   |
+AND  | REG  : 4    | REG  : 1    | 10cc   |
+MOV  | ADDR : 8    | REG  : 4    | 200cc  |
+MOV  | REG  : 0    | ADDR : 0    | 200cc  |
+MOV  | REG  : 1    | ADDR : 4    | 200cc  |
+MOV  | REG  : 2    | ADDR : 8    | 200cc  |
+EXIT | CONST: 0    |             | 20cc   |
+-------------------------------------------
+exit normally
+
+r[0] = 0
+r[1] = 0
+r[2] = 4
+Total clock cycles are 2080
